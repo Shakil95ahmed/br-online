@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BudgetingReady — Monthly Financial Planner</title>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+
+<!-- Toast Notification -->
+<div id="toast" class="toast" aria-live="polite"></div>
+
+<!-- Onboarding Overlay -->
+<div id="onboarding" class="onboarding hidden">
+  <div class="onboarding-card">
+    <div class="onboarding-icon">💰</div>
+    <h2>Welcome to BudgetingReady</h2>
+    <p>Your offline-first monthly financial planner. Track income, bills, debts, and see exactly where you stand — no account needed.</p>
+    <ul>
+      <li>📥 Add your income sources</li>
+      <li>📋 Log your recurring bills</li>
+      <li>💳 Track debts & credit cards</li>
+      <li>📊 Watch your cash flow update live</li>
+    </ul>
+    <p class="onboarding-note">All data is saved locally in your browser. Nothing leaves your device.</p>
+    <button id="onboarding-start" class="btn btn-primary">Get Started</button>
+  </div>
+</div>
+
+<!-- App Header -->
+<header class="app-header">
+  <div class="header-brand">
+    <span class="brand-icon">◈</span>
+    <span class="brand-name">BudgetingReady</span>
+    <span class="brand-sub">Monthly Planner</span>
+  </div>
+  <div class="header-actions">
+    <span class="brand-sub">Utilize Import/Export to preserve data</span>
+    <button id="btn-import" class="btn btn-ghost" title="Import JSON">↑ Import</button>
+    <button id="btn-export" class="btn btn-ghost" title="Export JSON">↓ Export</button>
+    <button id="btn-reset" class="btn btn-danger-ghost" title="Reset all data">✕ Reset</button>
+  </div>
+</header>
+
+<!-- ═══════════ DASHBOARD SUMMARY ═══════════ -->
+<section class="section dashboard-section">
+  <div class="dashboard-grid">
+
+    <!-- Big Balance Card -->
+    <div class="card balance-card" id="balance-card">
+      <div class="balance-label">Monthly Remaining</div>
+      <div class="balance-amount" id="balance-display">$0.00</div>
+      <div class="balance-insight" id="balance-insight">Add your income and bills to get started.</div>
+      <div class="balance-bars">
+        <div class="mini-bar-row">
+          <span>Income</span>
+          <div class="mini-bar-track"><div class="mini-bar income-bar" id="bar-income"></div></div>
+          <span id="lbl-income-sum">$0</span>
+        </div>
+        <div class="mini-bar-row">
+          <span>Bills</span>
+          <div class="mini-bar-track"><div class="mini-bar bills-bar" id="bar-bills"></div></div>
+          <span id="lbl-bills-sum">$0</span>
+        </div>
+        <div class="mini-bar-row">
+          <span>Debt Pmts</span>
+          <div class="mini-bar-track"><div class="mini-bar debt-bar" id="bar-debt"></div></div>
+          <span id="lbl-debt-sum">$0</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Stat Cards -->
+    <div class="stat-cards">
+      <div class="card stat-card">
+        <div class="stat-icon income-icon">↑</div>
+        <div class="stat-body">
+          <div class="stat-label">Monthly Income</div>
+          <div class="stat-value" id="stat-income">$0.00</div>
+        </div>
+      </div>
+      <div class="card stat-card">
+        <div class="stat-icon bills-icon">📋</div>
+        <div class="stat-body">
+          <div class="stat-label">Monthly Bills</div>
+          <div class="stat-value" id="stat-bills">$0.00</div>
+        </div>
+      </div>
+      <div class="card stat-card">
+        <div class="stat-icon debt-icon">💳</div>
+        <div class="stat-body">
+          <div class="stat-label">Debt Payments</div>
+          <div class="stat-value" id="stat-debt-payments">$0.00</div>
+        </div>
+      </div>
+      <div class="card stat-card">
+        <div class="stat-icon">🏦</div>
+        <div class="stat-body">
+          <div class="stat-label">Total Debt</div>
+          <div class="stat-value" id="stat-total-debt">$0.00</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Spending Chart -->
+    <div class="card chart-card">
+      <div class="card-header">
+        <span class="card-title">Spending Breakdown</span>
+        <span class="financial-score-label">Health Score: <strong id="health-score">—</strong></span>
+      </div>
+      <div class="chart-wrap">
+        <canvas id="spendingChart"></canvas>
+        <div class="chart-empty" id="chart-empty">Add bills to see breakdown</div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ═══════════ INCOME SECTION ═══════════ -->
+<section class="section" id="section-income">
+  <div class="section-header collapsible" data-target="income-body">
+    <div class="section-title-wrap">
+      <span class="section-icon">↑</span>
+      <h2 class="section-title">Income Sources</h2>
+      <span class="section-badge" id="badge-income">$0/mo</span>
+    </div>
+    <span class="collapse-arrow">▾</span>
+  </div>
+  <div class="section-body" id="income-body">
+    <div class="table-controls">
+      <label class="sort-label">Sort by: <select id="income-sort" class="input input-sm">
+        <option value="amount">Amount (High to Low)</option>
+        <option value="name">Name (A-Z)</option>
+        <option value="frequency">Frequency</option>
+      </select></label>
+    </div>
+    <div class="table-wrap">
+      <table class="data-table" id="income-table">
+        <thead>
+          <tr>
+            <th>Source</th>
+            <th>Amount</th>
+            <th class="col-hide-sm">Frequency</th>
+            <th>Monthly</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="income-rows"></tbody>
+      </table>
+    </div>
+    <div class="empty-state" id="income-empty">
+      <span class="empty-icon">💵</span>
+      <p>No income sources yet. Add your first one below.</p>
+    </div>
+    <div class="add-row-form" id="income-form">
+      <input type="text" id="income-name" placeholder="e.g. Main Job" class="input" />
+      <input type="number" id="income-amount" placeholder="Amount" class="input" min="0" step="0.01" />
+      <select id="income-freq" class="input">
+        <option value="weekly">Weekly</option>
+        <option value="biweekly" selected>Biweekly</option>
+        <option value="monthly">Monthly</option>
+      </select>
+      <button class="btn btn-primary" id="btn-add-income">+ Add</button>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ BILLS SECTION ═══════════ -->
+<section class="section" id="section-bills">
+  <div class="section-header collapsible" data-target="bills-body">
+    <div class="section-title-wrap">
+      <span class="section-icon">📋</span>
+      <h2 class="section-title">Recurring Bills</h2>
+      <span class="section-badge" id="badge-bills">$0/mo</span>
+    </div>
+    <span class="collapse-arrow">▾</span>
+  </div>
+  <div class="section-body" id="bills-body">
+    <div class="table-controls">
+      <label class="sort-label">Sort by: <select id="bills-sort" class="input input-sm">
+        <option value="dueDate">Due Date</option>
+        <option value="name">Name</option>
+        <option value="amount">Amount</option>
+      </select></label>
+    </div>
+    <div class="table-wrap">
+      <table class="data-table" id="bills-table">
+        <thead>
+          <tr>
+            <th>Bill Name</th>
+            <th>Amount</th>
+            <th class="col-hide-sm">Due Day</th>
+            <th class="col-hide-sm">Category</th>
+            <th class="col-hide-sm">Auto-Pay</th>
+            <th>Status</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="bills-rows"></tbody>
+      </table>
+    </div>
+    <div class="empty-state" id="bills-empty">
+      <span class="empty-icon">📄</span>
+      <p>No bills yet. Add your recurring expenses below.</p>
+    </div>
+    <div class="add-row-form bills-form-grid" id="bills-form">
+      <input type="text" id="bill-name" placeholder="e.g. Electric Bill" class="input" />
+      <input type="number" id="bill-amount" placeholder="Amount" class="input" min="0" step="0.01" />
+      <input type="number" id="bill-due" placeholder="Day (1–31)" class="input" min="1" max="31" />
+      <select id="bill-category" class="input">
+        <option value="Housing">Housing</option>
+        <option value="Utilities">Utilities</option>
+        <option value="Transportation">Transportation</option>
+        <option value="Insurance">Insurance</option>
+        <option value="Subscriptions">Subscriptions</option>
+        <option value="Food">Food</option>
+        <option value="Healthcare">Healthcare</option>
+        <option value="Other">Other</option>
+      </select>
+      <label class="toggle-label"><input type="checkbox" id="bill-autopay" /> Auto-Pay</label>
+      <button class="btn btn-primary" id="btn-add-bill">+ Add</button>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ DEBT TRACKER ═══════════ -->
+<section class="section" id="section-debt">
+  <div class="section-header collapsible" data-target="debt-body">
+    <div class="section-title-wrap">
+      <span class="section-icon">💳</span>
+      <h2 class="section-title">Debt Tracker</h2>
+      <span class="section-badge" id="badge-debt">$0 total</span>
+    </div>
+    <span class="collapse-arrow">▾</span>
+  </div>
+  <div class="section-body" id="debt-body">
+    <div class="table-controls">
+      <label class="sort-label">Sort by: <select id="debt-sort" class="input input-sm">
+        <option value="avalanche">Avalanche (Highest APR)</option>
+        <option value="snowball">Snowball (Lowest Balance)</option>
+        <option value="suggested">Suggested Payment</option>
+        <option value="amount">Balance (High to Low)</option>
+        <option value="dueDate">Due Date</option>
+        <option value="minPayment">Min Payment</option>
+      </select></label>
+    </div>
+    <div class="debt-strategy-banner" id="strategy-banner"></div>
+    <div id="debt-cards-wrap"></div>
+    <div class="empty-state" id="debt-empty">
+      <span class="empty-icon">🎉</span>
+      <p>No debts tracked. Lucky you — or add one below to plan payoff.</p>
+    </div>
+    <div class="add-row-form debt-form-grid" id="debt-form">
+      <input type="text" id="debt-name" placeholder="e.g. Visa Card" class="input" />
+      <input type="number" id="debt-balance" placeholder="Balance ($)" class="input" min="0" step="0.01" />
+      <input type="number" id="debt-rate" placeholder="APR %" class="input" min="0" step="0.01" />
+      <input type="number" id="debt-minpay" placeholder="Min Payment" class="input" min="0" step="0.01" />
+      <input type="number" id="debt-due" placeholder="Due Day" class="input" min="1" max="31" />
+      <input type="text" id="debt-promo" placeholder="Promo End (MM/YYYY)" class="input" />
+      <button class="btn btn-primary" id="btn-add-debt">+ Add</button>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ CASH FLOW ═══════════ -->
+<section class="section" id="section-cashflow">
+  <div class="section-header collapsible" data-target="cashflow-body">
+    <div class="section-title-wrap">
+      <span class="section-icon">📊</span>
+      <h2 class="section-title">Monthly Cash Flow</h2>
+    </div>
+    <span class="collapse-arrow">▾</span>
+  </div>
+  <div class="section-body" id="cashflow-body">
+    <div class="cashflow-grid">
+      <div class="card cashflow-card">
+        <div class="cf-row">
+          <span>Total Monthly Income</span>
+          <span class="cf-value green" id="cf-income">$0.00</span>
+        </div>
+        <div class="cf-row">
+          <span>Total Bills</span>
+          <span class="cf-value red" id="cf-bills">- $0.00</span>
+        </div>
+        <div class="cf-row">
+          <span>Total Debt Payments</span>
+          <span class="cf-value red" id="cf-debt">- $0.00</span>
+        </div>
+        <div class="cf-divider"></div>
+        <div class="cf-row cf-total">
+          <span>Net Remaining</span>
+          <span class="cf-value" id="cf-remaining">$0.00</span>
+        </div>
+        <div class="cf-row">
+          <span>Recommended Savings (20%)</span>
+          <span class="cf-value yellow" id="cf-savings">$0.00</span>
+        </div>
+        <div class="cf-row">
+          <span>Fixed Expense Ratio</span>
+          <span class="cf-value" id="cf-ratio">0%</span>
+        </div>
+      </div>
+      <div class="card cashflow-tips" id="cashflow-tips">
+        <div class="card-header"><span class="card-title">💡 Smart Tips</span></div>
+        <div id="tips-body"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ SAVINGS GOALS ═══════════ -->
+<section class="section" id="section-savings">
+  <div class="section-header collapsible" data-target="savings-body">
+    <div class="section-title-wrap">
+      <span class="section-icon">🎯</span>
+      <h2 class="section-title">Savings Goals</h2>
+    </div>
+    <span class="collapse-arrow">▾</span>
+  </div>
+  <div class="section-body" id="savings-body">
+    <div id="goals-grid"></div>
+    <div class="empty-state" id="goals-empty">
+      <span class="empty-icon">🎯</span>
+      <p>No savings goals yet. Set one below!</p>
+    </div>
+    <div class="add-row-form goals-form-grid" id="goals-form">
+      <input type="text" id="goal-name" placeholder="e.g. Emergency Fund" class="input" />
+      <input type="number" id="goal-target" placeholder="Target ($)" class="input" min="0" step="1" />
+      <input type="number" id="goal-saved" placeholder="Already Saved ($)" class="input" min="0" step="0.01" />
+      <input type="number" id="goal-monthly" placeholder="Monthly Contribution" class="input" min="0" step="0.01" />
+      <button class="btn btn-primary" id="btn-add-goal">+ Add Goal</button>
+    </div>
+  </div>
+</section>
+
+<!-- Hidden import file input -->
+<input type="file" id="import-file" accept=".json" style="display:none" />
+
+<!-- ═══════════ EDIT MODAL ═══════════ -->
+<div id="edit-modal-overlay" class="modal-overlay hidden" role="dialog" aria-modal="true">
+  <div class="modal" id="edit-modal">
+    <div class="modal-title" id="edit-modal-title">Edit Item</div>
+    <div class="modal-fields" id="edit-modal-fields"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="edit-modal-cancel">Cancel</button>
+      <button class="btn btn-primary" id="edit-modal-save">Save Changes</button>
+    </div>
+  </div>
+</div>
+
+<footer class="app-footer">
+  <span>© BudgetingReady 2026 — All data saved locally on your device. Nothing is sent anywhere. Proudly made by <a href="https://ztostart.com" target="_blank" rel="noopener noreferrer" style="color:var(--accent);text-decoration:none">ZtoStart.com</a></span>
+</footer>
+
+<script src="app.js"></script>
+</body>
+</html>
